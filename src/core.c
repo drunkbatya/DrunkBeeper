@@ -1,5 +1,5 @@
 #include "core.h"
-#include "main.h"  // STM
+#include "main.h" // STM
 
 #include "stm32f4xx_ll_rcc.h"
 #include "stm32f4xx_ll_bus.h"
