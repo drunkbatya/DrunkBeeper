@@ -1,3 +1,3 @@
 #pragma once
 
-void player_init(void);
+void player_init(float tempo);
