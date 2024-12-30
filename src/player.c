@@ -1,33 +1,52 @@
 #include "player.h"
-#include "beep.h"
+#include "note.h"
 
 #include <stm32f4xx_ll_bus.h>
 #include <stm32f4xx_ll_tim.h>
-
-#define SEMITONE_PAUSE 0xFF
-
-#define NOTE_C4 261.63f
-#define NOTE_C4_SEMITONE (4.0f * 12.0f)
-#define TWO_POW_TWELTH_ROOT 1.059463094359f
+#include <stddef.h>
 
 typedef struct {
-    float frequency;
-    uint32_t duration_in_32s;
-} Note;
+    const Beeper beeper;
+    const Note* notes;
+    uint32_t notes_size;
+    uint32_t index;
+    uint32_t count_32s_remaining;
+    float volume;
+} Channel;
 
-static Note notes_low[] = {
-    {.frequency = 293.66, .duration_in_32s = 32},
-    {.frequency = 329.63, .duration_in_32s = 16},
-    {.frequency = 0, .duration_in_32s = 16},
-    {.frequency = 349.23, .duration_in_32s = 16},
-    {.frequency = 349.23, .duration_in_32s = 16},
-    {.frequency = 392.0, .duration_in_32s = 16},
-    {.frequency = 392.0, .duration_in_32s = 16},
-    {.frequency = 440.0, .duration_in_32s = 128},
+static Channel channels[BeeperCount] = {
+    {.beeper = BeeperLow,
+     .notes = NULL,
+     .notes_size = 0,
+     .index = 0,
+     .count_32s_remaining = 0,
+     .volume = 0},
+    {.beeper = BeeperMid,
+     .notes = NULL,
+     .notes_size = 0,
+     .index = 0,
+     .count_32s_remaining = 0,
+     .volume = 0},
+    {.beeper = BeeperHigh,
+     .notes = NULL,
+     .notes_size = 0,
+     .index = 0,
+     .count_32s_remaining = 0,
+     .volume = 0},
 };
 
-static uint32_t index_low = 0;
-static uint32_t count_32s_low = 0;
+void player_load_data(Beeper beeper, const Note* notes, uint32_t notes_size) {
+    Channel* channel = &channels[beeper];
+    channel->notes = notes;
+    channel->notes_size = notes_size;
+    channel->index = 0;
+    channel->count_32s_remaining = 0;
+}
+
+void player_set_volume(Beeper beeper, float volume) {
+    Channel* channel = &channels[beeper];
+    channel->volume = volume;
+}
 
 static void MX_TIM2_Init(float frequency_hz) {
     uint32_t freq_div = 84000000LU / frequency_hz;
@@ -61,20 +80,24 @@ void player_init(float tempo) {
 }
 
 static void player_32_note_callback(void) {
-    // LOW
-    if(count_32s_low != 0) {
-        count_32s_low--;
-        return;
-    }
+    for(uint32_t channel_index = 0; channel_index < BeeperCount; channel_index++) {
+        Channel* channel = &channels[channel_index];
+        if(channel->count_32s_remaining != 0) {
+            channel->count_32s_remaining--;
+            continue;
+        }
 
-    uint32_t low_size = sizeof(notes_low) / sizeof(Note);
-    if(index_low < low_size) {
-        const Note* note = &notes_low[index_low];
-        beep_play(BeeperLow, note->frequency, 60);
-        count_32s_low = note->duration_in_32s;
-        index_low++;
-    } else {
-        beep_play(BeeperLow, 0, 60);
+        if(channel->index < channel->notes_size) {
+            if(channel->notes == NULL) {
+                continue;
+            }
+            const Note* note = &channel->notes[channel->index];
+            beep_play(channel->beeper, note->frequency, channel->volume);
+            channel->count_32s_remaining = note->duration_in_32s;
+            channel->index++;
+        } else {
+            beep_play(channel->beeper, 0, 0);
+        }
     }
 }
 

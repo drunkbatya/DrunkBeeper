@@ -9,7 +9,6 @@ static TIM_TypeDef* beeper_timer_map[BeeperCount] = {TIM3, TIM4, TIM9};
 
 #define BEEPER_CHANNEL LL_TIM_CHANNEL_CH1
 #define BEEPER_PRESCALER 500
-#define BEEPER_MAX_VOLUME 60
 
 static inline uint32_t beeper_calculate_autoreload(float frequency) {
     uint32_t autoreload = (SystemCoreClock / BEEPER_PRESCALER / frequency) - 1;
